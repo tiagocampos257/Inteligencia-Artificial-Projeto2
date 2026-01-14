@@ -1,0 +1,473 @@
+;Mudar este parametro para o diretório correspondente do seu PC 
+(defparameter *ficheiro-log*
+  "C:/Users/35193/Desktop/Ano Letivo 2526/Inteligência Artificial/Projeto fase 2/Inteligencia-Artificial-Projeto2-main/Inteligencia-Artificial-Projeto2-main/logs/log.dat")
+
+
+;Cria um estado
+(defun make-estado (tabuleiro jogador)
+  (list tabuleiro jogador))
+
+(defun mostra-estado (estado)
+  (format t "~%Estado atual (Jogador ~A a jogar):~%"
+          (estado-jogador estado))
+  (puzzle::print-tabuleiro (estado-tabuleiro estado)))
+
+(defun estado-tabuleiro (estado)
+  (first estado))
+
+(defun estado-jogador (estado)
+  (second estado))
+
+(defun sucessores-estado (estado)
+  (let ((jog (estado-jogador estado)))
+    (mapcar
+      (lambda (par)
+        (make-estado
+          (cdr par)              ; tabuleiro já resultante
+          (puzzle::adversario jog)))     ; troca de jogador
+      (puzzle::gera-sucessores
+        (estado-tabuleiro estado)
+        jog))))
+
+(defun estado-terminal? (estado)
+  "Um estado e terminal se o jogador atual nao tiver jogadas possiveis"
+  (null (sucessores-estado estado)))
+
+(defun utilidade (estado jogador-max)
+  "Devolve utilidade do estado para o jogador-max"
+  (cond
+    ((not (estado-terminal? estado)) 0)
+    ((= (estado-jogador estado) jogador-max) -1)
+    (t 1)))
+
+(defun avaliacao (estado jogador-max)
+  "Funcao heuristica: vantagem do jogador-max no estado dado"
+(incf *cont-avaliacoes*)
+  (let* ((tab (estado-tabuleiro estado))
+         (jog-actual (estado-jogador estado))
+         (jog-min (if (= jogador-max 1) 2 1))
+
+         (movs-max
+           (length
+             (puzzle::gera-sucessores tab jogador-max)))
+
+         (movs-min
+           (length
+             (puzzle::gera-sucessores tab jog-min))))
+    (- movs-max movs-min)))
+
+(defun valor-estado (estado jogador-max)
+  (if (estado-terminal? estado)
+      (utilidade estado jogador-max)
+      (avaliacao estado jogador-max)))
+
+(defun max-valor (sucessores prof jogador-max)
+  (cond
+    ((null sucessores) -1000) ; estado mau para MAX
+    (t
+     (max
+       (minimax (first sucessores) prof jogador-max)
+       (max-valor (rest sucessores) prof jogador-max)))))
+
+(defun min-valor (sucessores prof jogador-max)
+  (cond
+    ((null sucessores) 1000) ; estado mau para MIN (bom para MAX)
+    (t
+     (min
+       (minimax (first sucessores) prof jogador-max)
+       (min-valor (rest sucessores) prof jogador-max)))))
+
+(defun minimax (estado prof jogador-max)
+  (cond
+    ;; estado terminal ou limite de profundidade
+    ((or (estado-terminal? estado) (= prof 0))
+     (valor-estado estado jogador-max))
+
+    ;; turno do MAX
+    ((= (estado-jogador estado) jogador-max)
+     (max-valor
+       (sucessores-estado estado)
+       (1- prof)
+       jogador-max))
+
+    ;; turno do MIN
+    (t
+     (min-valor
+       (sucessores-estado estado)
+       (1- prof)
+       jogador-max))))
+
+
+(defun escolhe-melhor (melhor-atual restantes prof jogador-max)
+  (cond
+    ((null restantes) melhor-atual)
+
+    (t
+     (let* ((valor-atual
+              (minimax melhor-atual (1- prof) jogador-max))
+            (valor-novo
+              (minimax (first restantes) (1- prof) jogador-max)))
+
+       (if (> valor-novo valor-atual)
+           (escolhe-melhor
+             (first restantes)
+             (rest restantes)
+             prof
+             jogador-max)
+           (escolhe-melhor
+             melhor-atual
+             (rest restantes)
+             prof
+             jogador-max))))))
+
+
+
+(defun melhor-jogada-aux (sucessores prof jogador-max)
+  (cond
+    ((null sucessores) nil)
+
+    (t
+     (escolhe-melhor
+       (first sucessores)
+       (rest sucessores)
+       prof
+       jogador-max))))
+
+
+(defun melhor-jogada (estado prof jogador-max)
+  (melhor-jogada-aux
+    (sucessores-estado estado)
+    prof
+    jogador-max))
+
+
+
+(defun alpha-max (sucessores prof alpha beta jogador-max)
+  (cond
+    ((null sucessores) alpha)
+
+    (t
+     (let* ((valor
+              (alpha-beta
+                (first sucessores)
+                (1- prof)
+                alpha
+                beta
+                jogador-max))
+            (novo-alpha (max alpha valor)))
+
+       (if (>= novo-alpha beta)
+           novo-alpha
+           (alpha-max
+             (rest sucessores)
+             prof
+             novo-alpha
+             beta
+             jogador-max))))))
+
+
+(defun alpha-min (sucessores prof alpha beta jogador-max)
+  (cond
+    ((null sucessores) beta)
+
+    (t
+     (let* ((valor
+              (alpha-beta
+                (first sucessores)
+                (1- prof)
+                alpha
+                beta
+                jogador-max))
+            (novo-beta (min beta valor)))
+
+       (if (<= novo-beta alpha)
+           novo-beta
+           (alpha-min
+             (rest sucessores)
+             prof
+             alpha
+             novo-beta
+             jogador-max))))))
+
+
+(defun alpha-beta (estado prof alpha beta jogador-max)
+  (cond
+    ;; terminal ou profundidade limite
+    ((or (estado-terminal? estado) (= prof 0))
+     (valor-estado estado jogador-max))
+
+    ;; nó MAX
+    ((= (estado-jogador estado) jogador-max)
+     (alpha-max
+       (sucessores-estado estado)
+       prof
+       alpha
+       beta
+       jogador-max))
+
+    ;; nó MIN
+    (t
+     (alpha-min
+       (sucessores-estado estado)
+       prof
+       alpha
+       beta
+       jogador-max))))
+
+(defun melhor-jogada-ab (estado prof jogador-max)
+  (melhor-jogada-ab-aux
+    (sucessores-estado estado)
+    prof
+    jogador-max
+    -1000
+    1000))
+
+
+(defun melhor-jogada-ab-aux (sucessores prof jogador-max alpha beta)
+  (cond
+    ((null sucessores) nil)
+
+    (t
+     (escolhe-melhor-ab
+       (first sucessores)
+       (rest sucessores)
+       prof
+       jogador-max
+       alpha
+       beta))))
+
+(defun escolhe-melhor-ab (melhor-atual restantes prof jogador-max alpha beta)
+  (cond
+    ((null restantes) melhor-atual)
+
+    (t
+     (let* ((valor-atual
+              (alpha-beta melhor-atual (1- prof) alpha beta jogador-max))
+            (valor-novo
+              (alpha-beta (first restantes) (1- prof) alpha beta jogador-max)))
+
+       (if (> valor-novo valor-atual)
+           (escolhe-melhor-ab
+             (first restantes)
+             (rest restantes)
+             prof
+             jogador-max
+             (max alpha valor-novo)
+             beta)
+           (escolhe-melhor-ab
+             melhor-atual
+             (rest restantes)
+             prof
+             jogador-max
+             alpha
+             beta))))))
+
+
+(defun sucessores-com-jogada (estado)
+  "Devolve lista de pares (mov . novo-estado) para o jogador atual.
+    usa o tabuleiro resultante que ja vem do puzzle."
+  (let* ((tab (estado-tabuleiro estado))
+         (jog (estado-jogador estado))
+         (pares (puzzle::gera-sucessores tab jog))) ; (mov . novo-tab)
+    (mapcar (lambda (par)
+              (cons (car par)
+                    (make-estado (cdr par) (puzzle::adversario jog))))
+            pares)))
+
+(defun alpha-beta-stats (estado prof alpha beta jogador-max)
+  "Devolve 4 valores: (valor nos cortes-alpha cortes-beta)."
+  (cond
+    ((or (estado-terminal? estado) (= prof 0))
+     (values (valor-estado estado jogador-max) 1 0 0))
+
+    ((= (estado-jogador estado) jogador-max)
+     (alpha-max-stats (sucessores-com-jogada estado) prof alpha beta jogador-max))
+
+    (t
+     (alpha-min-stats (sucessores-com-jogada estado) prof alpha beta jogador-max))))
+
+(defun alpha-max-stats (sucessores prof alpha beta jogador-max)
+  (cond
+    ((null sucessores)
+     (values alpha 1 0 0))  ; 1 nó (este), sem cortes
+
+    (t
+     (multiple-value-bind (valor-filho nos1 ca1 cb1)
+         (alpha-beta-stats (cdar sucessores) (1- prof) alpha beta jogador-max)
+       (let ((novo-alpha (max alpha valor-filho)))
+         (if (>= novo-alpha beta)
+             ;; corte por beta
+             (values novo-alpha (+ nos1 1) ca1 (+ cb1 1))
+           (multiple-value-bind (valor-resto nos2 ca2 cb2)
+               (alpha-max-stats (cdr sucessores) prof novo-alpha beta jogador-max)
+             (values valor-resto (+ nos1 nos2 1) (+ ca1 ca2) (+ cb1 cb2)))))))))
+
+(defun alpha-min-stats (sucessores prof alpha beta jogador-max)
+  (cond
+    ((null sucessores)
+     (values beta 1 0 0))
+
+    (t
+     (multiple-value-bind (valor-filho nos1 ca1 cb1)
+         (alpha-beta-stats (cdar sucessores) (1- prof) alpha beta jogador-max)
+       (let ((novo-beta (min beta valor-filho)))
+         (if (<= novo-beta alpha)
+             ;; corte por alpha
+             (values novo-beta (+ nos1 1) (+ ca1 1) cb1)
+           (multiple-value-bind (valor-resto nos2 ca2 cb2)
+               (alpha-min-stats (cdr sucessores) prof alpha novo-beta jogador-max)
+             (values valor-resto (+ nos1 nos2 1) (+ ca1 ca2) (+ cb1 cb2)))))))))
+
+(defun escolhe-melhor-ab-stats (pares prof jogador-max alpha beta)
+  (cond
+    ((null pares)
+     (values nil nil -1000 0 0 0))
+
+    ((null (cdr pares))
+     (let ((mov (caar pares))
+           (est (cdar pares)))
+       (multiple-value-bind (val nos ca cb)
+           (alpha-beta-stats est (1- prof) alpha beta jogador-max)
+         (values mov est val nos ca cb))))
+
+    (t
+     (let ((mov1 (caar pares))
+           (est1 (cdar pares)))
+       (multiple-value-bind (val1 nos1 ca1 cb1)
+           (alpha-beta-stats est1 (1- prof) alpha beta jogador-max)
+         (multiple-value-bind (mov2 est2 val2 nos2 ca2 cb2)
+             (escolhe-melhor-ab-stats (cdr pares) prof jogador-max (max alpha val1) beta)
+           (if (> val1 val2)
+               (values mov1 est1 val1 (+ nos1 nos2) (+ ca1 ca2) (+ cb1 cb2))
+             (values mov2 est2 val2 (+ nos1 nos2) (+ ca1 ca2) (+ cb1 cb2)))))))))
+
+(defun melhor-jogada-ab-stats (estado prof jogador-max)
+  "Devolve 6 valores: (melhor-mov melhor-estado valor nos ca cb)."
+  (escolhe-melhor-ab-stats
+    (sucessores-com-jogada estado)
+    prof
+    jogador-max
+    -1000
+    1000))
+
+(defun simbolo-sem-package (sym)
+  (intern (symbol-name sym) :cl-user))
+
+(defun normaliza-mov (mov)
+  "Converte o tipo do movimento para um símbolo no CL-USER (ex: PUZZLE::B -> B)."
+  (list (simbolo-sem-package (first mov))
+        (second mov)
+        (third mov)))
+
+(defun escreve-log (mov nos ca cb tempo-seg)
+  (let* ((mov-limpo (normaliza-mov mov))
+         (linha (format nil
+                        "Jogada: ~A | Nos: ~A | Cortes-alpha: ~A | Cortes-beta: ~A | Tempo: ~,3Fs~%"
+                        mov-limpo nos ca cb tempo-seg)))
+    ;; ecrã
+    (format t "~A" linha)
+    ;; ficheiro
+    (with-open-file (s *ficheiro-log*
+                       :direction :output
+                       :if-exists :append
+                       :if-does-not-exist :create)
+      (format s "~A" linha))))
+
+
+(defun jogada-computador (estado prof jogador-max)
+  "Devolve (mov . novo-estado). Escreve log antes de devolver."
+  (let ((t0 (get-internal-real-time)))
+    (multiple-value-bind (mov est val nos ca cb)
+        (melhor-jogada-ab-stats estado prof jogador-max)
+      (declare (ignore val))
+      (let* ((t1 (get-internal-real-time))
+             (dt (/ (- t1 t0) internal-time-units-per-second)))
+        (escreve-log mov nos ca cb dt)
+        (cons mov est)))))
+
+(defun ler-jogada-humano ()
+  (format t "~%Insira jogada (ex: (cd 4 2)): ")
+  (read))
+
+(defun jogada-humano (estado)
+  "Devolve novo estado apos jogada valida do humano. Se invalida, repete."
+  (let* ((tab (estado-tabuleiro estado))
+         (jog (estado-jogador estado))
+         (mov (ler-jogada-humano))
+         (pares (puzzle::gera-sucessores tab jog))
+         (hit (procura-sucessor-por-mov mov pares)))
+    (if (null hit)
+        (progn
+          (format t "~%Jogada invalida. Tenta outra vez.~%")
+          (jogada-humano estado))
+      (make-estado (cdr hit) (puzzle::adversario jog)))))
+
+(defun vencedor (estado)
+  "Devolve o jogador vencedor num estado terminal."
+  (puzzle::adversario (estado-jogador estado)))
+
+
+(defun procura-sucessor-por-mov (mov pares)
+  "Devolve o par (mov . novo-tab) correspondente, ou NIL se nao existir."
+  (cond
+    ((null pares) nil)
+    ((equal mov (caar pares)) (car pares))
+    (t (procura-sucessor-por-mov mov (cdr pares)))))
+
+(defun lista-jogadas-validas (estado)
+  (let* ((tab (estado-tabuleiro estado))
+         (jog (estado-jogador estado))
+         (pares (puzzle::gera-sucessores tab jog)))
+    (mapcar #'car pares)))
+
+(defun print-jogadas (jogadas)
+  (cond
+    ((null jogadas) (format t "~%"))
+    (t
+     (format t "~A " (first jogadas))
+     (print-jogadas (rest jogadas)))))
+
+
+(defun jogo-humano-vs-computador (estado prof jogador-humano)
+  (cond
+    ((estado-terminal? estado)
+     (mostra-estado estado)
+     (let ((v (vencedor estado)))
+       (format t "~%Jogo terminou. Vencedor: Jogador ~A~%" v)
+       estado))
+
+    ((= (estado-jogador estado) jogador-humano)
+     (mostra-estado estado)
+     (format t "~%--- TURNO HUMANO (Jogador ~A) ---~%" jogador-humano)
+     (format t "~%Jogadas válidas: ")
+     (print-jogadas (lista-jogadas-validas estado))
+     (jogo-humano-vs-computador
+       (jogada-humano estado)
+       prof
+       jogador-humano))
+
+    (t
+     (mostra-estado estado)
+     (format t "~%--- TURNO COMPUTADOR (Jogador ~A) ---~%"
+             (estado-jogador estado))
+     (let ((par (jogada-computador estado prof (estado-jogador estado))))
+       (jogo-humano-vs-computador
+         (cdr par)
+         prof
+         jogador-humano)))))
+
+
+(defun iniciar-hvc (prof)
+  (jogo-humano-vs-computador
+    (make-estado (puzzle::tabuleiro-inicial) 1)
+    prof
+    1))
+
+(defun iniciar-hvc-humano2 (prof)
+  (jogo-humano-vs-computador
+    (make-estado (puzzle::tabuleiro-inicial) 1)
+    prof
+    2))
+
+
+

@@ -83,12 +83,24 @@
 (defun ciclo-jogo (estado jogador tempo)     ; recebe o estado do tabuleiro, 1 ou 2 quem joga agora e tempo limite por jogada
   (format t "~%Estado atual:~%")
   (print-tabuleiro estado)
-  (if (estado-final? estado) (format t "Fim de jogo!~%")
+  (if (objetivo? estado) (format t "Fim de jogo!~%")
     (if (= jogador 1)                                       ; se jogador1 joga ele se, caso contrario joga o jogador 2
         (let ((novo-estado (turno-humano estado 1)))
           (ciclo-jogo novo-estado 2 tempo))
 
-        (let ((resultado (jogar estado tempo)))             ; computador -> vai executar o algoritmo escolhe a melhor jogada
+        (let ((resultado (jogar estado tempo)))             ; computador calcula a melhor jogada
 
            (let ((novo-estado (second resultado)))          ; vai buscar o tabuleiro depois da jogada do computador
               (ciclo-jogo novo-estado 1 tempo))))))
+
+;------------------------------FUNCAO PRINCIPAL DE JOGAR -----------------------------------------------------
+
+(defun jogar (tabuleiro tempo)
+  "Chama o alg AlfaBeta e devolve ((mov) novo-tabuleiro)"
+  (let* ((estado (make-estado tabuleiro 2))  ; computador é jogador 2
+         (prof 6)                            ; profundidade fixa (simples)
+         (par (jogada-computador estado prof 2))
+         (mov (car par))
+         (novo-estado (cdr par)))
+    (list mov (estado-tabuleiro novo-estado))))
+
