@@ -11,8 +11,8 @@
 
 (defun carregar-ficheiros ()
  "carregar os ficheiros algoritmo e puzzle"
- (load "algoritmo.lisp")
- (load "puzzle.lisp")
+ (load "puzzle.LISP")
+ (load "algoritmo.LISP")
 )
 
 ;; Listas de escolhas
