@@ -51,56 +51,91 @@
   (format t "~%Modo Computador vs Computador~%")
   (format t "Tempo limite para cada jogada (ms): ")
   (let ((tempo (read)))
-    (ciclo-jogo-inicial 1 tempo))) ; 1 significa que começa o computador1
+    (let ((estado (make-estado (puzzle::tabuleiro-inicial) 1)))
+      (jogar 'cvc estado tempo))))
 
 
 
 (defun ciclo-jogo-inicial (quem-comeca tempo)
   (format t "~%Jogo iniciado!~%")
-  (let ((estado (estado-inicial)))
-    (ciclo-jogo estado quem-comeca tempo))) ; 1 = jogador1 comeca
+  (let ((estado (make-estado (puzzle::tabuleiro-inicial) quem-comeca)))
+    (jogar 'hvc estado tempo))) 
 
 
 (defun ler-jogada-humano ()
-  (format t "Introduza uma jogada: ")     ; deve devolver algo como (b 2 3) ou tipo (cd 4 2)
+  (format t "~%Insira jogada (ex: (cd 4 2)): ")
   (read))
 
-(defun jogada-humana-valida (mov estado jogador)
-  (let ((sucessores (gera-sucessores estado jogador)))
-    (assoc mov sucessores :test #'equal)))      ; se existir devolve o par mov . novo-estado, se nao nil
+(defun jogada-humano (estado)
+  "Devolve novo estado apos jogada valida do humano. Se invalida, repete."
+  (let* ((tab (estado-tabuleiro estado))
+         (jog (estado-jogador estado))
+         (mov (ler-jogada-humano))
+         (pares (puzzle::gera-sucessores tab jog))
+         (hit (procura-sucessor-por-mov mov pares)))
+    (if (null hit)
+        (progn
+          (format t "~%Jogada invalida. Tenta outra vez.~%")
+          (jogada-humano estado))
+      (make-estado (cdr hit) (puzzle::adversario jog)))))
 
 
-(defun turno-humano (estado jogador)
-  (let ((mov (ler-jogada-humano)))
-    (let ((par (jogada-humana-valida mov estado jogador)))
-      (if par
-          (cdr par) ; devolve o novo estado
-          (progn
-            (format t "Jogada invalida, tente novamente.~%")
-            (turno-humano estado jogador))))))
+
+(defun ciclo-jogo-hvc (estado tempo)     
+  (format t "~%Estado atual (jogador ~A a jogar):~%" (estado-jogador estado))
+  (puzzle::print-tabuleiro (estado-tabuleiro estado))
+
+  (if (estado-terminal? estado) (format t "Fim de jogo! Vencedor: jogador ~A~%" (puzzle::adversario (estado-jogador estado)))
+
+    (if (= (estado-jogador estado) 1) ; se jogador1 joga ele se, caso contrario joga o jogador 2
+        (progn
+          (format t "~%Jogadas validas: ")
+          (print-jogadas (lista-jogadas-validas estado))
+          (ciclo-jogo-hvc (jogada-humano estado) tempo))
+          
+
+          (let* ((prof 6)            
+                 (par (jogada-computador estado prof 2))
+                 (novo-estado (cdr par)))
+            (ciclo-jogo-hvc novo-estado tempo)))))
+
+(defun ciclo-jogo-cvc (estado tempo)
+  (format t "~%Estado atual (jogador ~A a jogar):~%" (estado-jogador estado))
+  (puzzle::print-tabuleiro (estado-tabuleiro estado))
+
+  (if (estado-terminal? estado)
+      (format t "~%Fim de jogo! Vencedor: jogador ~A~%" (puzzle::adversario (estado-jogador estado)))
+
+      (let* ((prof 6)
+             (par (jogada-computador estado prof (estado-jogador estado)))
+             (novo-estado (cdr par)))
+        (ciclo-jogo-cvc novo-estado tempo))))
 
 
-(defun ciclo-jogo (estado jogador tempo)     ; recebe o estado do tabuleiro, 1 ou 2 quem joga agora e tempo limite por jogada
-  (format t "~%Estado atual:~%")
-  (print-tabuleiro estado)
-  (if (objetivo? estado) (format t "Fim de jogo!~%")
-    (if (= jogador 1)                                       ; se jogador1 joga ele se, caso contrario joga o jogador 2
-        (let ((novo-estado (turno-humano estado 1)))
-          (ciclo-jogo novo-estado 2 tempo))
 
-        (let ((resultado (jogar estado tempo)))             ; computador calcula a melhor jogada
 
-           (let ((novo-estado (second resultado)))          ; vai buscar o tabuleiro depois da jogada do computador
-              (ciclo-jogo novo-estado 1 tempo))))))
+(defun procura-sucessor-por-mov (mov pares)
+  "Devolve o par (mov . novo-tab) correspondente, ou NIL se nao existir."
+  (cond
+    ((null pares) nil)
+    ((equal mov (caar pares)) (car pares))
+    (t (procura-sucessor-por-mov mov (cdr pares)))))
 
-;------------------------------FUNCAO PRINCIPAL DE JOGAR -----------------------------------------------------
 
-(defun jogar (tabuleiro tempo)
-  "Chama o alg AlfaBeta e devolve ((mov) novo-tabuleiro)"
-  (let* ((estado (make-estado tabuleiro 2))  ; computador é jogador 2
-         (prof 6)                            ; profundidade fixa (simples)
-         (par (jogada-computador estado prof 2))
-         (mov (car par))
-         (novo-estado (cdr par)))
-    (list mov (estado-tabuleiro novo-estado))))
+(defun lista-jogadas-validas (estado)
+  (let* ((tab (estado-tabuleiro estado))
+         (jog (estado-jogador estado))
+         (pares (puzzle::gera-sucessores tab jog)))
+    (mapcar #'car pares)))
 
+(defun print-jogadas (jogadas)
+  (cond
+    ((null jogadas) (format t "~%"))
+    (t
+     (format t "~A " (first jogadas))
+     (print-jogadas (rest jogadas)))))
+
+(defun jogar (modo estado tempo)
+  (cond
+   ((eq modo 'hvc) (ciclo-jogo-hvc estado tempo))
+   ((eq modo 'cvc) (ciclo-jogo-cvc estado tempo))))

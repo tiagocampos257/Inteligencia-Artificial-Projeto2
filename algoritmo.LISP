@@ -1,6 +1,6 @@
 ;Mudar este parametro para o diretório correspondente do seu PC 
 (defparameter *ficheiro-log*
-  "C:/Users/35193/Desktop/Ano Letivo 2526/Inteligência Artificial/Projeto fase 2/Inteligencia-Artificial-Projeto2-main/Inteligencia-Artificial-Projeto2-main/logs/log.dat")
+  "C:\Users\filip\OneDrive\Área de Trabalho\Universidade\3ºano\AI\projetoAI2\logs\log.dat")
 
 
 
@@ -9,10 +9,6 @@
 (defun make-estado (tabuleiro jogador)
   (list tabuleiro jogador))
 
-(defun mostra-estado (estado)
-  (format t "~%Estado atual (Jogador ~A a jogar):~%"
-          (estado-jogador estado))
-  (puzzle::print-tabuleiro (estado-tabuleiro estado)))
 
 (defun estado-tabuleiro (estado)
   (first estado))
@@ -393,89 +389,12 @@
         (escreve-log mov nos ca cb dt)
         (cons mov est)))))
 
-(defun ler-jogada-humano ()
-  (format t "~%Insira jogada (ex: (cd 4 2)): ")
-  (read))
-
-(defun jogada-humano (estado)
-  "Devolve novo estado apos jogada valida do humano. Se invalida, repete."
-  (let* ((tab (estado-tabuleiro estado))
-         (jog (estado-jogador estado))
-         (mov (ler-jogada-humano))
-         (pares (puzzle::gera-sucessores tab jog))
-         (hit (procura-sucessor-por-mov mov pares)))
-    (if (null hit)
-        (progn
-          (format t "~%Jogada invalida. Tenta outra vez.~%")
-          (jogada-humano estado))
-      (make-estado (cdr hit) (puzzle::adversario jog)))))
-
-(defun vencedor (estado)
-  "Devolve o jogador vencedor num estado terminal."
-  (puzzle::adversario (estado-jogador estado)))
 
 
-(defun procura-sucessor-por-mov (mov pares)
-  "Devolve o par (mov . novo-tab) correspondente, ou NIL se nao existir."
-  (cond
-    ((null pares) nil)
-    ((equal mov (caar pares)) (car pares))
-    (t (procura-sucessor-por-mov mov (cdr pares)))))
-
-(defun lista-jogadas-validas (estado)
-  (let* ((tab (estado-tabuleiro estado))
-         (jog (estado-jogador estado))
-         (pares (puzzle::gera-sucessores tab jog)))
-    (mapcar #'car pares)))
-
-(defun print-jogadas (jogadas)
-  (cond
-    ((null jogadas) (format t "~%"))
-    (t
-     (format t "~A " (first jogadas))
-     (print-jogadas (rest jogadas)))))
 
 
-(defun jogo-humano-vs-computador (estado prof jogador-humano)
-  (cond
-    ((estado-terminal? estado)
-     (mostra-estado estado)
-     (let ((v (vencedor estado)))
-       (format t "~%Jogo terminou. Vencedor: Jogador ~A~%" v)
-       estado))
-
-    ((= (estado-jogador estado) jogador-humano)
-     (mostra-estado estado)
-     (format t "~%--- TURNO HUMANO (Jogador ~A) ---~%" jogador-humano)
-     (format t "~%Jogadas válidas: ")
-     (print-jogadas (lista-jogadas-validas estado))
-     (jogo-humano-vs-computador
-       (jogada-humano estado)
-       prof
-       jogador-humano))
-
-    (t
-     (mostra-estado estado)
-     (format t "~%--- TURNO COMPUTADOR (Jogador ~A) ---~%"
-             (estado-jogador estado))
-     (let ((par (jogada-computador estado prof (estado-jogador estado))))
-       (jogo-humano-vs-computador
-         (cdr par)
-         prof
-         jogador-humano)))))
 
 
-(defun iniciar-hvc (prof)
-  (jogo-humano-vs-computador
-    (make-estado (puzzle::tabuleiro-inicial) 1)
-    prof
-    1))
-
-(defun iniciar-hvc-humano2 (prof)
-  (jogo-humano-vs-computador
-    (make-estado (puzzle::tabuleiro-inicial) 1)
-    prof
-    2))
 
 
 
