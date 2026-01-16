@@ -337,17 +337,18 @@
 
 
 (defun print-linha (linha)
-  "Imprime uma linha do tabuleiro, convertendo 1 , 0 , nil espaço"
   (cond
-    ((null linha) (format t "~%")) ; fim da linha
+    ((null linha) (format t "~%"))
     (t
      (let ((celula (first linha)))
        (cond
          ((null celula) (format t "   "))   ; fora da cruz
-         ((= celula 1) (format t " X "))   ; pino
-         ((= celula 0) (format t " O "))))
-     (print-linha (rest linha)))) ; recursão para o resto da linha
-)
+         ((= celula 0) (format t " O "))    ; vazio
+         ((= celula 1) (format t " X "))    ; jogador 1
+         ((= celula 2) (format t " Y "))    ; jogador 2 (ou outro símbolo)
+         (t (format t " ? "))))            ; segurança
+     (print-linha (rest linha)))))
+
      
 
 (defun print-tabuleiro (tab)

@@ -1,6 +1,6 @@
 ;Mudar este parametro para o diretório correspondente do seu PC 
 (defparameter *ficheiro-log*
-  "C:\Users\filip\OneDrive\Área de Trabalho\Universidade\3ºano\AI\projetoAI2\logs\log.dat")
+  "C:/Users/filip/OneDrive/Área de Trabalho/Universidade/3ºano/AI/projetoAI2/logs/log.dat")
 
 
 
@@ -290,68 +290,86 @@
      (alpha-min-stats (sucessores-com-jogada estado) prof alpha beta jogador-max))))
 
 (defun alpha-max-stats (sucessores prof alpha beta jogador-max)
+  (alpha-max-stats-aux sucessores prof alpha beta jogador-max alpha 0 0 0))
+
+(defun alpha-max-stats-aux (sucessores prof alpha beta jogador-max melhor nos ca cb)
   (cond
     ((null sucessores)
-     (values alpha 1 0 0))  ; 1 nó (este), sem cortes
+     (values melhor nos ca cb))
 
     (t
      (multiple-value-bind (valor-filho nos1 ca1 cb1)
          (alpha-beta-stats (cdar sucessores) (1- prof) alpha beta jogador-max)
-       (let ((novo-alpha (max alpha valor-filho)))
-         (if (>= novo-alpha beta)
-             ;; corte por beta
-             (values novo-alpha (+ nos1 1) ca1 (+ cb1 1))
-           (multiple-value-bind (valor-resto nos2 ca2 cb2)
-               (alpha-max-stats (cdr sucessores) prof novo-alpha beta jogador-max)
-             (values valor-resto (+ nos1 nos2 1) (+ ca1 ca2) (+ cb1 cb2)))))))))
+       (let* ((nos2 (+ nos nos1))
+              (ca2 (+ ca ca1))
+              (cb2 (+ cb cb1))
+              (melhor2 (max melhor valor-filho))
+              (alpha2 (max alpha melhor2)))
+         (if (>= alpha2 beta)
+             ;; corte por beta (MAX cortou)
+             (values melhor2 nos2 ca2 (1+ cb2))
+           (alpha-max-stats-aux (cdr sucessores) prof alpha2 beta jogador-max melhor2 nos2 ca2 cb2)))))))
+
 
 (defun alpha-min-stats (sucessores prof alpha beta jogador-max)
+  (alpha-min-stats-aux sucessores prof alpha beta jogador-max beta 0 0 0))
+
+(defun alpha-min-stats-aux (sucessores prof alpha beta jogador-max melhor nos ca cb)
   (cond
     ((null sucessores)
-     (values beta 1 0 0))
+     (values melhor nos ca cb))
 
     (t
      (multiple-value-bind (valor-filho nos1 ca1 cb1)
          (alpha-beta-stats (cdar sucessores) (1- prof) alpha beta jogador-max)
-       (let ((novo-beta (min beta valor-filho)))
-         (if (<= novo-beta alpha)
-             ;; corte por alpha
-             (values novo-beta (+ nos1 1) (+ ca1 1) cb1)
-           (multiple-value-bind (valor-resto nos2 ca2 cb2)
-               (alpha-min-stats (cdr sucessores) prof alpha novo-beta jogador-max)
-             (values valor-resto (+ nos1 nos2 1) (+ ca1 ca2) (+ cb1 cb2)))))))))
+       (let* ((nos2 (+ nos nos1))
+              (ca2 (+ ca ca1))
+              (cb2 (+ cb cb1))
+              (melhor2 (min melhor valor-filho))
+              (beta2 (min beta melhor2)))
+         (if (<= beta2 alpha)
+             ;; corte por alpha (MIN cortou)
+             (values melhor2 nos2 (1+ ca2) cb2)
+           (alpha-min-stats-aux (cdr sucessores) prof alpha beta2 jogador-max melhor2 nos2 ca2 cb2)))))))
+
 
 (defun escolhe-melhor-ab-stats (pares prof jogador-max alpha beta)
+  (escolhe-melhor-ab-stats-aux pares prof jogador-max alpha beta nil nil -1000000 0 0 0))
+
+(defun escolhe-melhor-ab-stats-aux (pares prof jogador-max alpha beta melhor-mov melhor-est melhor-val nos ca cb)
   (cond
     ((null pares)
-     (values nil nil -1000 0 0 0))
-
-    ((null (cdr pares))
-     (let ((mov (caar pares))
-           (est (cdar pares)))
-       (multiple-value-bind (val nos ca cb)
-           (alpha-beta-stats est (1- prof) alpha beta jogador-max)
-         (values mov est val nos ca cb))))
+     (values melhor-mov melhor-est melhor-val nos ca cb))
 
     (t
-     (let ((mov1 (caar pares))
-           (est1 (cdar pares)))
-       (multiple-value-bind (val1 nos1 ca1 cb1)
-           (alpha-beta-stats est1 (1- prof) alpha beta jogador-max)
-         (multiple-value-bind (mov2 est2 val2 nos2 ca2 cb2)
-             (escolhe-melhor-ab-stats (cdr pares) prof jogador-max (max alpha val1) beta)
-           (if (> val1 val2)
-               (values mov1 est1 val1 (+ nos1 nos2) (+ ca1 ca2) (+ cb1 cb2))
-             (values mov2 est2 val2 (+ nos1 nos2) (+ ca1 ca2) (+ cb1 cb2)))))))))
+     (let ((mov (caar pares))
+           (est (cdar pares)))
+       (multiple-value-bind (val nos1 ca1 cb1)
+           (alpha-beta-stats est (1- prof) alpha beta jogador-max)
+         (let* ((nos2 (+ nos nos1))
+                (ca2 (+ ca ca1))
+                (cb2 (+ cb cb1))
+                (melhor? (> val melhor-val))
+                (melhor-mov2 (if melhor? mov melhor-mov))
+                (melhor-est2 (if melhor? est melhor-est))
+                (melhor-val2 (if melhor? val melhor-val))
+                (alpha2 (max alpha melhor-val2)))
+           (if (>= alpha2 beta)
+               ;; corte beta ao escolher (opcional; mantém coerência com AB)
+               (values melhor-mov2 melhor-est2 melhor-val2 nos2 ca2 (1+ cb2))
+             (escolhe-melhor-ab-stats-aux (cdr pares) prof jogador-max alpha2 beta
+                                          melhor-mov2 melhor-est2 melhor-val2
+                                          nos2 ca2 cb2))))))))
+
 
 (defun melhor-jogada-ab-stats (estado prof jogador-max)
-  "Devolve 6 valores: (melhor-mov melhor-estado valor nos ca cb)."
   (escolhe-melhor-ab-stats
-    (sucessores-com-jogada estado)
-    prof
-    jogador-max
-    -1000
-    1000))
+   (sucessores-com-jogada estado)
+   prof
+   jogador-max
+   -1000
+   1000))
+
 
 (defun simbolo-sem-package (sym)
   (intern (symbol-name sym) :cl-user))
