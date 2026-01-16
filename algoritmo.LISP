@@ -28,17 +28,14 @@
         jog))))
 
 (defun estado-terminal? (estado)
-  "Um estado e terminal se o jogador atual nao tiver jogadas possiveis"
-  (null (sucessores-estado estado)))
+  (puzzle::objetivo? (estado-tabuleiro estado)))
 
 ;------------------------------------------------AVALIZACAO---------------------------------------------
 
 (defun utilidade (estado jogador-max)
-  "Devolve utilidade do estado para o jogador-max"
-  (cond
-    ((not (estado-terminal? estado)) 0)
-    ((= (estado-jogador estado) jogador-max) -1)
-    (t 1)))
+  "1 se jogador-max ganhou, -1 se perdeu"
+  (let ((vencedor (puzzle::adversario (estado-jogador estado))))
+    (if (= vencedor jogador-max) 1 -1)))
 
 (defun avaliacao (estado jogador-max)
   "Funcao heuristica: vantagem do jogador-max no estado dado"
@@ -46,20 +43,17 @@
          (jog-actual (estado-jogador estado))
          (jog-min (if (= jogador-max 1) 2 1))
 
-         (movs-max
-           (length
-             (puzzle::gera-sucessores tab jogador-max)))
+         (movs-max (length (puzzle::gera-sucessores tab jogador-max)))
 
-         (movs-min
-           (length
-             (puzzle::gera-sucessores tab jog-min))))
+         (movs-min (length (puzzle::gera-sucessores tab jog-min))))
     (- movs-max movs-min)))
 
 (defun valor-estado (estado jogador-max)
   (if (estado-terminal? estado)
-      (utilidade estado jogador-max)
+      (* 1000 (utilidade estado jogador-max)) ; vitória domina tudo
       (avaliacao estado jogador-max)))
 
+;ou seja nenhuma heuristica intermedia consegue competir ao ganhar o jogo
 ;-------------------------------------------------MINIMAX----------------------------------------------------
 
 (defun max-valor (sucessores prof jogador-max)
@@ -201,7 +195,7 @@
     ((= (estado-jogador estado) jogador-max)
      (alpha-max
        (sucessores-estado estado)
-       prof
+       (1- prof)
        alpha
        beta
        jogador-max))
@@ -210,7 +204,7 @@
     (t
      (alpha-min
        (sucessores-estado estado)
-       prof
+       (1- prof)
        alpha
        beta
        jogador-max))))
@@ -278,7 +272,6 @@
 ;---------------------------------------------ALFABETA COM STATS------------------------------------------------------
 
 (defun alpha-beta-stats (estado prof alpha beta jogador-max)
-  "Devolve 4 valores: (valor nos cortes-alpha cortes-beta)."
   (cond
     ((or (estado-terminal? estado) (= prof 0))
      (values (valor-estado estado jogador-max) 1 0 0))
@@ -296,7 +289,6 @@
   (cond
     ((null sucessores)
      (values melhor nos ca cb))
-
     (t
      (multiple-value-bind (valor-filho nos1 ca1 cb1)
          (alpha-beta-stats (cdar sucessores) (1- prof) alpha beta jogador-max)
@@ -306,10 +298,9 @@
               (melhor2 (max melhor valor-filho))
               (alpha2 (max alpha melhor2)))
          (if (>= alpha2 beta)
-             ;; corte por beta (MAX cortou)
              (values melhor2 nos2 ca2 (1+ cb2))
-           (alpha-max-stats-aux (cdr sucessores) prof alpha2 beta jogador-max melhor2 nos2 ca2 cb2)))))))
-
+             (alpha-max-stats-aux (cdr sucessores) prof alpha2 beta
+                                  jogador-max melhor2 nos2 ca2 cb2)))))))
 
 (defun alpha-min-stats (sucessores prof alpha beta jogador-max)
   (alpha-min-stats-aux sucessores prof alpha beta jogador-max beta 0 0 0))
@@ -318,7 +309,6 @@
   (cond
     ((null sucessores)
      (values melhor nos ca cb))
-
     (t
      (multiple-value-bind (valor-filho nos1 ca1 cb1)
          (alpha-beta-stats (cdar sucessores) (1- prof) alpha beta jogador-max)
@@ -328,9 +318,9 @@
               (melhor2 (min melhor valor-filho))
               (beta2 (min beta melhor2)))
          (if (<= beta2 alpha)
-             ;; corte por alpha (MIN cortou)
              (values melhor2 nos2 (1+ ca2) cb2)
-           (alpha-min-stats-aux (cdr sucessores) prof alpha beta2 jogador-max melhor2 nos2 ca2 cb2)))))))
+             (alpha-min-stats-aux (cdr sucessores) prof alpha beta2
+                                  jogador-max melhor2 nos2 ca2 cb2)))))))
 
 
 (defun escolhe-melhor-ab-stats (pares prof jogador-max alpha beta)

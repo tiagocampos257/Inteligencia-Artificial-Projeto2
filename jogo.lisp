@@ -111,8 +111,11 @@
 
     ((estado-terminal? estado)
      (mostra-estado estado)
-     (format t "~%Fim de jogo! Vencedor: Jogador ~A~%" (vencedor estado))
-     estado)
+     (let ((v (vencedor estado)))
+   (if (= v jog-humano)
+       (format t "~% Parabéns! Ganhaste o jogo! ~%")
+       (format t "~% O computador ganhou o jogo. ~%")))
+ estado)
 
     ((= (estado-jogador estado) jog-humano)
      (mostra-estado estado)
@@ -148,3 +151,8 @@
      (format t "~%--- TURNO COMPUTADOR (Jogador ~A) ---~%" (estado-jogador estado))
      (let ((par (jogada-computador estado prof (estado-jogador estado))))
        (ciclo-cvc (cdr par) prof)))))
+
+
+(defun vencedor (estado)
+  "Devolve o jogador que fez a última jogada válida."
+  (puzzle::adversario (estado-jogador estado)))
